@@ -286,15 +286,33 @@ enum EditSubmitter {
 
     // MARK: - Panel seeds
 
+    static func editImageSeedModel() -> ImageModelConfig? {
+        ModelCatalog.shared.availableImage.first { $0.supportsImageReference }
+    }
+
+    static func editVideoSeedModel() -> VideoModelConfig? {
+        ModelCatalog.shared.availableVideo.first { $0.requiresSourceVideo }
+    }
+
+    static func createVideoSeedModel(asReference: Bool) -> VideoModelConfig? {
+        ModelCatalog.shared.availableVideo.first {
+            !$0.requiresSourceVideo && (asReference ? $0.supportsReferences : $0.supportsFirstFrame)
+        }
+    }
+
+    static var hasCreateVideoSeed: Bool {
+        createVideoSeedModel(asReference: false) != nil || createVideoSeedModel(asReference: true) != nil
+    }
+
     /// GenerationInput for an Edit action — opens the generation panel pre-filled with the asset as source.
     static func editSeed(for asset: MediaAsset) -> GenerationInput? {
         let modelId: String
         switch asset.type {
         case .video:
-            guard let m = VideoModelConfig.allModels.first(where: { $0.requiresSourceVideo }) else { return nil }
+            guard let m = editVideoSeedModel() else { return nil }
             modelId = m.id
         case .image:
-            guard let m = ImageModelConfig.nanoBananaPro else { return nil }
+            guard let m = editImageSeedModel() else { return nil }
             modelId = m.id
         case .audio, .text, .lottie:
             return nil
@@ -306,9 +324,7 @@ enum EditSubmitter {
 
     /// GenerationInput for Create Video — uses the image as a first frame or as a reference.
     static func createVideoSeed(for asset: MediaAsset, asReference: Bool) -> GenerationInput? {
-        guard let model = VideoModelConfig.allModels.first(where: {
-            !$0.requiresSourceVideo && (asReference ? $0.supportsReferences : $0.supportsFirstFrame)
-        }) else { return nil }
+        guard let model = createVideoSeedModel(asReference: asReference) else { return nil }
         var stored = GenerationInput(prompt: "", model: model.id, duration: 0, aspectRatio: "", resolution: nil)
         if asReference { stored.referenceImageAssetIds = [asset.id] } else { stored.imageURLAssetIds = [asset.id] }
         return stored

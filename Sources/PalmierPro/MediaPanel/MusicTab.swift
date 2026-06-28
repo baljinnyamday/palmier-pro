@@ -13,8 +13,10 @@ struct MusicTab: View {
     @State private var note: String?
 
     private var models: [AudioModelConfig] {
-        AudioModelConfig.allModels.filter { $0.inputs.contains(.video) && $0.category == .music }
+        ModelCatalog.shared.availableAudio.filter { $0.inputs.contains(.video) && $0.category == .music }
     }
+
+    private var musicAllowed: Bool { ModelCatalog.shared.musicAllowed }
 
     private var model: AudioModelConfig? {
         if let id = selectedModelId, let m = models.first(where: { $0.id == id }) { return m }
@@ -57,6 +59,7 @@ struct MusicTab: View {
     }
 
     private var validationNote: String? {
+        guard musicAllowed else { return "Music unavailable. No music provider configured." }
         guard let model else { return "No music models available." }
         if isTextMode {
             if trimmedPrompt.isEmpty { return "Describe the music to generate." }
@@ -74,7 +77,13 @@ struct MusicTab: View {
     }
 
     private var canGenerate: Bool {
-        model != nil && validationNote == nil && !isGenerating
+        musicAllowed && model != nil && validationNote == nil && !isGenerating
+    }
+
+    private var generateHelp: String {
+        if !account.aiAllowed { return "Sign in to generate" }
+        if !musicAllowed { return "Music unavailable. No music provider configured." }
+        return ""
     }
 
     private var generateLabel: String {
@@ -227,7 +236,7 @@ struct MusicTab: View {
                 }
                 .buttonStyle(.plain).focusable(false)
                 .disabled(!canGenerate || !account.aiAllowed)
-                .help(account.aiAllowed ? "" : "Sign in to generate")
+                .help(generateHelp)
 
                 agentMenu
             }

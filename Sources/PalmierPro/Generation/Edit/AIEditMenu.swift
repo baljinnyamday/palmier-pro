@@ -14,7 +14,7 @@ struct AIEditMenu: View {
             Menu("AI Edit") {
                 if availableActions.contains(.upscale) {
                     Menu("Upscale") {
-                        ForEach(UpscaleModelConfig.models(for: asset.type)) { model in
+                        ForEach(UpscaleModelConfig.availableModels(for: asset.type)) { model in
                             Button(model.displayName) { runUpscale(model) }
                         }
                     }

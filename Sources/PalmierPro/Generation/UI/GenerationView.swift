@@ -173,17 +173,66 @@ struct GenerationView: View {
         }
     }
 
-    /// Keeps an enabled selection untouched
+    /// Keeps an enabled, available selection when possible.
     private func enabledIndex(_ current: Int, in ids: [String]) -> Int {
         let prefs = ModelPreferences.shared
-        if ids.indices.contains(current), prefs.isEnabled(ids[current]) { return current }
-        return ids.firstIndex { prefs.isEnabled($0) } ?? (ids.indices.contains(current) ? current : 0)
+        func selectable(index: Int, id: String) -> Bool {
+            prefs.isEnabled(id) && (ModelRegistry.byId[id]?.isAvailable ?? true)
+        }
+        if ids.indices.contains(current), selectable(index: current, id: ids[current]) { return current }
+        return ids.enumerated().first(where: { selectable(index: $0.offset, id: $0.element) })?.offset
+            ?? (ids.indices.contains(current) ? current : 0)
+    }
+
+    private var capabilityAllowed: Bool {
+        let catalog = ModelCatalog.shared
+        switch selectedType {
+        case .video: return catalog.videoAllowed
+        case .image: return catalog.imageAllowed
+        case .audio:
+            switch audioModel.category {
+            case .tts: return catalog.ttsAllowed
+            case .music: return catalog.musicAllowed
+            case .sfx: return catalog.sfxAllowed
+            }
+        }
+    }
+
+    private var capabilityUnavailableReason: String? {
+        guard !capabilityAllowed else { return nil }
+        switch selectedType {
+        case .video: return "Video unavailable. No video provider configured."
+        case .image: return "Image unavailable. No image provider configured."
+        case .audio:
+            switch audioModel.category {
+            case .tts: return "Speech unavailable. No speech provider configured."
+            case .music: return "Music unavailable. No music provider configured."
+            case .sfx: return "Sound effects unavailable on this backend."
+            }
+        }
+    }
+
+    private var currentModelAvailable: Bool {
+        switch selectedType {
+        case .video: videoModel.isAvailable
+        case .image: imageModel.isAvailable
+        case .audio: audioModel.isAvailable
+        }
+    }
+
+    private var currentModelUnavailableReason: String {
+        switch selectedType {
+        case .video: videoModel.unavailableReason ?? "Model unavailable on this backend."
+        case .image: imageModel.unavailableReason ?? "Model unavailable on this backend."
+        case .audio: audioModel.unavailableReason ?? "Model unavailable on this backend."
+        }
     }
 
     private var trimmedPrompt: String { prompt.trimmingCharacters(in: .whitespaces) }
     private var isPromptEmpty: Bool { trimmedPrompt.isEmpty }
 
     private var canSubmit: Bool {
+        guard capabilityAllowed, currentModelAvailable else { return false }
         guard canAffordGeneration else { return false }
         if selectedType == .video && videoModel.requiresSourceVideo {
             guard sourceVideo != nil else { return false }
@@ -1309,7 +1358,18 @@ struct GenerationView: View {
         .tint(AppTheme.Accent.primary)
         .disabled(aiAllowed ? !canSubmit : account.isMisconfigured || account.isSigningIn)
         .opacity((aiAllowed ? canSubmit : !account.isMisconfigured && !account.isSigningIn) ? AppTheme.Opacity.opaque : AppTheme.Opacity.strong)
-        .help(aiAllowed ? "" : (account.isMisconfigured ? "AI is unavailable" : account.isSigningIn ? "Opening Google" : "Sign in to generate"))
+        .help(submitHelp)
+    }
+
+    private var submitHelp: String {
+        if !aiAllowed {
+            if account.isMisconfigured { return "AI is unavailable" }
+            if account.isSigningIn { return "Opening Google" }
+            return "Sign in to generate"
+        }
+        if let reason = capabilityUnavailableReason { return reason }
+        if !currentModelAvailable { return currentModelUnavailableReason }
+        return ""
     }
 
     // MARK: - Type picker
@@ -1358,10 +1418,14 @@ struct GenerationView: View {
             case .video:
                 ForEach(enabledVideoModels, id: \.index) { item in
                     Button(item.model.displayName) { selectedVideoModelIndex = item.index }
+                        .disabled(!item.model.isAvailable)
+                        .help(item.model.unavailableReason ?? "")
                 }
             case .image:
                 ForEach(enabledImageModels, id: \.index) { item in
                     Button(item.model.displayName) { selectedImageModelIndex = item.index }
+                        .disabled(!item.model.isAvailable)
+                        .help(item.model.unavailableReason ?? "")
                 }
             case .audio:
                 ForEach(AudioModelConfig.Category.allCases, id: \.self) { category in
@@ -1369,6 +1433,8 @@ struct GenerationView: View {
                         Section(category.label) {
                             ForEach(items, id: \.index) { item in
                                 Button(item.model.displayName) { selectedAudioModelIndex = item.index }
+                                    .disabled(!item.model.isAvailable)
+                                    .help(item.model.unavailableReason ?? "")
                             }
                         }
                     }

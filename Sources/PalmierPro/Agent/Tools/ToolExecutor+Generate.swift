@@ -11,11 +11,17 @@ extension ToolExecutor {
         }
         switch type {
         case .video:
-            guard let modelId = args.string("model") ?? VideoModelConfig.allModels.first?.id else {
+            guard ModelCatalog.shared.videoAllowed else {
+                throw ToolError("Video generation is unavailable on this backend (no video provider configured). Tell the user video isn't available.")
+            }
+            guard let modelId = args.string("model") ?? VideoModelConfig.allModels.first(where: \.isAvailable)?.id else {
                 throw ToolError("Model catalog not loaded yet. Try again in a moment.")
             }
             guard let model = VideoModelConfig.allModels.first(where: { $0.id == modelId }) else {
-                throw ToolError("Unknown model '\(modelId)'. Available: \(VideoModelConfig.allModels.map(\.id).joined(separator: ", "))")
+                throw ToolError("Unknown model '\(modelId)'. Available: \(VideoModelConfig.allModels.filter(\.isAvailable).map(\.id).joined(separator: ", "))")
+            }
+            guard model.isAvailable else {
+                throw ToolError("Model '\(modelId)' is unavailable on this backend. Tell the user it isn't configured.")
             }
             return model.requiresSourceVideo
                 ? try generateVideoEdit(editor, args, prompt: prompt, model: model)
@@ -151,11 +157,17 @@ extension ToolExecutor {
         _ editor: EditorViewModel, _ args: [String: Any], prompt: String
     ) throws -> ToolResult {
         guard !prompt.isEmpty else { throw ToolError("Empty prompt") }
-        guard let modelId = args.string("model") ?? ImageModelConfig.allModels.first?.id else {
+        guard ModelCatalog.shared.imageAllowed else {
+            throw ToolError("Image generation is unavailable on this backend (no image provider configured). Tell the user image generation isn't available.")
+        }
+        guard let modelId = args.string("model") ?? ImageModelConfig.allModels.first(where: \.isAvailable)?.id else {
             throw ToolError("Model catalog not loaded yet. Try again in a moment.")
         }
         guard let model = ImageModelConfig.allModels.first(where: { $0.id == modelId }) else {
-            throw ToolError("Unknown model '\(modelId)'. Available: \(ImageModelConfig.allModels.map(\.id).joined(separator: ", "))")
+            throw ToolError("Unknown model '\(modelId)'. Available: \(ImageModelConfig.allModels.filter(\.isAvailable).map(\.id).joined(separator: ", "))")
+        }
+        guard model.isAvailable else {
+            throw ToolError("Model '\(modelId)' is unavailable on this backend. Tell the user it isn't configured.")
         }
         let aspectRatio = args.string("aspectRatio") ?? model.aspectRatios.first ?? ""
         let resolution = args.string("resolution") ?? model.resolutions?.first
@@ -201,11 +213,28 @@ extension ToolExecutor {
         guard AccountService.shared.hasCredits else {
             throw ToolError("Out of credits. Tell the user to add credits or subscribe to keep generating.")
         }
-        guard let modelId = args.string("model") ?? AudioModelConfig.allModels.first?.id else {
+        guard let modelId = args.string("model") ?? AudioModelConfig.allModels.first(where: \.isAvailable)?.id else {
             throw ToolError("Model catalog not loaded yet. Try again in a moment.")
         }
         guard let model = AudioModelConfig.allModels.first(where: { $0.id == modelId }) else {
-            throw ToolError("Unknown model '\(modelId)'. Available: \(AudioModelConfig.allModels.map(\.id).joined(separator: ", "))")
+            throw ToolError("Unknown model '\(modelId)'. Available: \(AudioModelConfig.allModels.filter(\.isAvailable).map(\.id).joined(separator: ", "))")
+        }
+        guard model.isAvailable else {
+            throw ToolError("Model '\(modelId)' is unavailable on this backend. Tell the user it isn't configured.")
+        }
+        switch model.category {
+        case .tts:
+            guard ModelCatalog.shared.ttsAllowed else {
+                throw ToolError("Speech generation is unavailable on this backend (no speech provider configured). Tell the user speech isn't available.")
+            }
+        case .music:
+            guard ModelCatalog.shared.musicAllowed else {
+                throw ToolError("Music generation is unavailable on this backend (no music provider configured). Tell the user music isn't available.")
+            }
+        case .sfx:
+            guard ModelCatalog.shared.sfxAllowed || ModelCatalog.shared.musicAllowed else {
+                throw ToolError("Sound effect generation is unavailable on this backend. Tell the user it isn't configured.")
+            }
         }
 
         let prompt = (args.string("prompt") ?? "").trimmingCharacters(in: .whitespaces)
@@ -323,8 +352,11 @@ extension ToolExecutor {
         guard AccountService.shared.hasCredits else {
             throw ToolError("Out of credits. Tell the user to add credits or subscribe to keep generating.")
         }
+        guard ModelCatalog.shared.upscaleAllowed else {
+            throw ToolError("Upscaling is unavailable on this backend (no upscale provider configured). Tell the user upscaling isn't available.")
+        }
 
-        let available = UpscaleModelConfig.models(for: asset.type)
+        let available = UpscaleModelConfig.availableModels(for: asset.type)
         let model: UpscaleModelConfig
         if let requested = args.string("model") {
             guard let match = available.first(where: { $0.id == requested }) else {
@@ -375,16 +407,16 @@ extension ToolExecutor {
         let filter = args.string("type")
         var out: [[String: Any]] = []
         if filter == nil || filter == "video" {
-            out += VideoModelConfig.allModels.map { Self.videoModelInfo($0, includeType: true) }
+            out += VideoModelConfig.allModels.filter(\.isAvailable).map { Self.videoModelInfo($0, includeType: true) }
         }
         if filter == nil || filter == "image" {
-            out += ImageModelConfig.allModels.map { Self.imageModelInfo($0, includeType: true) }
+            out += ImageModelConfig.allModels.filter(\.isAvailable).map { Self.imageModelInfo($0, includeType: true) }
         }
         if filter == nil || filter == "audio" {
-            out += AudioModelConfig.allModels.map { Self.audioModelInfo($0) }
+            out += AudioModelConfig.allModels.filter(\.isAvailable).map { Self.audioModelInfo($0) }
         }
         if filter == nil || filter == "upscale" {
-            out += UpscaleModelConfig.allModels.map { Self.upscaleModelInfo($0) }
+            out += UpscaleModelConfig.allModels.filter(\.isAvailable).map { Self.upscaleModelInfo($0) }
         }
         let body: [String: Any] = [
             "models": out,

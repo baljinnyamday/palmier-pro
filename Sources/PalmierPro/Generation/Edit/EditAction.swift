@@ -31,6 +31,12 @@ enum EditAction {
             guard asset.type == .video || asset.type == .image else {
                 return .disabled(reason: "Upscale only works on video or images")
             }
+            guard ModelCatalog.shared.upscaleAllowed else {
+                return .disabled(reason: "Upscaling unavailable on this backend.")
+            }
+            guard !UpscaleModelConfig.availableModels(for: asset.type).isEmpty else {
+                return .disabled(reason: "Upscaling unavailable on this backend.")
+            }
             if asset.type == .video {
                 guard let h = asset.sourceHeight, h > 0 else {
                     return .disabled(reason: "Loading video metadata…")
@@ -50,6 +56,12 @@ enum EditAction {
         case .edit:
             switch asset.type {
             case .video:
+                guard ModelCatalog.shared.videoAllowed else {
+                    return .disabled(reason: "Video editing unavailable on this backend.")
+                }
+                guard EditSubmitter.editVideoSeedModel() != nil else {
+                    return .disabled(reason: "Video editing unavailable on this backend.")
+                }
                 let duration = effectiveDurationOverride ?? Self.effectiveDuration(of: asset)
                 guard duration > 0 else {
                     return .disabled(reason: "Loading video metadata…")
@@ -58,7 +70,12 @@ enum EditAction {
                     return .disabled(reason: "Edit supports up to \(Int(EditAction.editMaxDurationSeconds))s (this is \(Int(duration.rounded()))s)")
                 }
             case .image:
-                break // images have no duration constraint
+                guard ModelCatalog.shared.imageAllowed else {
+                    return .disabled(reason: "Image editing unavailable on this backend.")
+                }
+                guard EditSubmitter.editImageSeedModel() != nil else {
+                    return .disabled(reason: "Image editing unavailable on this backend.")
+                }
             case .audio:
                 return .disabled(reason: "Edit doesn't support audio")
             case .text:
@@ -89,6 +106,12 @@ enum EditAction {
             guard asset.type == .image else {
                 return .disabled(reason: "Create Video only works on images")
             }
+            guard ModelCatalog.shared.videoAllowed else {
+                return .disabled(reason: "Video generation unavailable on this backend.")
+            }
+            guard EditSubmitter.hasCreateVideoSeed else {
+                return .disabled(reason: "Video generation unavailable on this backend.")
+            }
             if asset.isGenerating {
                 return .disabled(reason: "Generation in progress")
             }
@@ -103,6 +126,9 @@ enum EditAction {
             }
             guard let modelId = asset.generationInput?.model, ModelRegistry.exists(id: modelId) else {
                 return .disabled(reason: "Model no longer available")
+            }
+            guard ModelRegistry.byId[modelId]?.isAvailable == true else {
+                return .disabled(reason: "Model unavailable on this backend.")
             }
             return .available
         }
@@ -137,6 +163,20 @@ enum EditAction {
         let duration = effectiveDurationOverride ?? effectiveDuration(of: asset)
         guard duration > 0 else {
             return .disabled(reason: "Loading video metadata…")
+        }
+        switch kind.category {
+        case .music:
+            guard ModelCatalog.shared.musicAllowed else {
+                return .disabled(reason: "Music unavailable. No music provider configured.")
+            }
+        case .sfx:
+            guard ModelCatalog.shared.sfxAllowed || ModelCatalog.shared.musicAllowed else {
+                return .disabled(reason: "Sound effects unavailable on this backend.")
+            }
+        case .tts:
+            guard ModelCatalog.shared.ttsAllowed else {
+                return .disabled(reason: "Speech unavailable. No speech provider configured.")
+            }
         }
         guard let model = kind.model else {
             return .disabled(reason: "\(kind.providerName) model not available")
