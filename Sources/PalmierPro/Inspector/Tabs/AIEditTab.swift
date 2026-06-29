@@ -278,7 +278,7 @@ struct AIEditTab: View {
         switch action {
         case .upscale:
             Menu(title) {
-                ForEach(UpscaleModelConfig.models(for: asset.type)) { model in
+                ForEach(UpscaleModelConfig.availableModels(for: asset.type)) { model in
                     Button {
                         runUpscale(model)
                     } label: {
@@ -289,8 +289,8 @@ struct AIEditTab: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .controlSize(.small)
-            .disabled(!isEnabled || !account.aiAllowed)
-            .help(account.aiAllowed ? "" : "Sign in to upscale")
+            .disabled(!isEnabled || !account.aiAllowed || !ModelCatalog.shared.upscaleAllowed)
+            .help(upscaleHelp(isEnabled: isEnabled))
         case .createVideo:
             Menu(title) {
                 Button("Set as first frame") { sendToVideo(asReference: false) }
@@ -381,6 +381,13 @@ struct AIEditTab: View {
             spanSeconds: max(spanSeconds, 1 / Double(max(1, editor.timeline.fps))),
             actionName: actionName
         )
+    }
+
+    private func upscaleHelp(isEnabled: Bool) -> String {
+        if !account.aiAllowed { return "Sign in to upscale" }
+        if !ModelCatalog.shared.upscaleAllowed { return "Upscaling unavailable on this backend." }
+        if !isEnabled { return "Upscale unavailable for this asset." }
+        return ""
     }
 
     private func upscaleLabel(for model: UpscaleModelConfig) -> String {

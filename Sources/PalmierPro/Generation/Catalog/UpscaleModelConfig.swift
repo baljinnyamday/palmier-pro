@@ -26,11 +26,18 @@ struct UpscaleModelConfig: Identifiable, Sendable {
         allModels.filter { $0.supportedTypes.contains(type) }
     }
 
+    @MainActor
+    static func availableModels(for type: ClipType) -> [UpscaleModelConfig] {
+        models(for: type).filter(\.isAvailable)
+    }
+
     let entry: CatalogEntry
     let caps: UpscaleCaps
 
     var id: String { entry.id }
     var displayName: String { entry.displayName }
+    var isAvailable: Bool { entry.available }
+    var unavailableReason: String? { entry.unavailableReason }
     var creditsPerSecond: Double { entry.creditsPerSecondUpscale ?? 0 }
 
     var speed: String { caps.speed }

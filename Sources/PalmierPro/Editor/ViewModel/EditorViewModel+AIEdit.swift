@@ -15,7 +15,7 @@ extension EditorViewModel {
 
     func aiEditUpscaleModels(clipId: String) -> [UpscaleModelConfig] {
         guard let (_, asset) = aiEditClipAsset(clipId) else { return [] }
-        return UpscaleModelConfig.models(for: asset.type)
+        return UpscaleModelConfig.availableModels(for: asset.type)
     }
 
     // MARK: - Clip-aware actions (trim + replace-on-complete where applicable)

@@ -42,3 +42,21 @@ Palmier Pro speaks like a quietly capable native Mac app for filmmakers: direct,
 confident. Prefer Apple HIG-style terseness over warmth. Never chatty or cute. Never marketing. When the
 product needs to ask for action, lead with the action verb; when it reports state, name the thing.
 
+## Learned User Preferences
+
+- Prefer `swift build && swift run` for day-to-day UI and Swift changes instead of `./scripts/dev.sh`.
+- Local development without Palmier `.env` keys or Developer ID signing certificate is expected.
+- Prefer Multitask Mode in one session over separate chat windows for dependent parallel work (e.g. plans 00 → 01–04 → 05 wave pattern).
+- For multi-part implementation, spawn subagents on auto; reserve gpt-5.5-high for review passes only.
+
+## Learned Workspace Facts
+
+- Metal shader compilation requires Xcode's Metal Toolchain (`xcodebuild -downloadComponent MetalToolchain`); Command Line Tools alone are insufficient.
+- `./scripts/dev.sh` defaults to Palmier's Developer ID signing; without that cert, use `SIGNING_IDENTITY='-' ./scripts/dev.sh` or ad-hoc sign `.build/PalmierPro.app`.
+- Missing root `.env` (Clerk/Convex keys) does not block the editor; only account and generative features are disabled.
+- In-app agent chat and the MCP server share one `ToolExecutor` with 39 tools; chat calls tools directly via Anthropic tool-use, not through the local MCP server.
+- A single local MCP server runs at `http://127.0.0.1:19789/mcp` while Palmier Pro is open.
+- Generative video/image/audio routes through Palmier's Convex backend (closed source); `GenerationBackend.swift` is the primary client integration point to swap or fork.
+- Self-hosted generation backend lives in `backend/convex/`; rollout plans are in `docs/plans/` (00 foundation serial, 01–04 adapters parallel, 06 provider pivot optional, 05 app wiring serial). Default providers: x.ai (image/video/TTS), OpenAI (image fallback). fal/ElevenLabs models are opt-in only (`FAL_KEY`/`ELEVENLABS_API_KEY` optional); no silent fallback to Seedance or fal.
+- Only `generate_video`, `generate_image`, `generate_audio`, and `upscale_media` require sign-in and credits; all other agent/MCP tools run locally without a Palmier subscription.
+

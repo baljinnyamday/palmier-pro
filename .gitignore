@@ -17,6 +17,7 @@ wwdc/
 # Secrets
 .env
 .env.*
+!.env.example
 *.pem
 *.p12
 *.p8
@@ -34,3 +35,9 @@ models/*/.venv/
 models/*/build*/
 models/*/checkpoint*
 models/*/convert*.log
+
+# Local agent / IDE tooling state
+.claude/
+.cursor/
+.agents/
+skills-lock.json

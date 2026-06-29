@@ -61,6 +61,8 @@ struct AudioModelConfig: Identifiable, Sendable {
 
     var id: String { entry.id }
     var displayName: String { entry.displayName }
+    var isAvailable: Bool { entry.available }
+    var unavailableReason: String? { entry.unavailableReason }
 
     var category: Category {
         switch caps.category {

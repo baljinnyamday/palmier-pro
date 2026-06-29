@@ -7,6 +7,24 @@ enum ModelKind: Sendable {
     case image(ImageModelConfig)
     case audio(AudioModelConfig)
     case upscale(UpscaleModelConfig)
+
+    var isAvailable: Bool {
+        switch self {
+        case .video(let m): m.isAvailable
+        case .image(let m): m.isAvailable
+        case .audio(let m): m.isAvailable
+        case .upscale(let m): m.isAvailable
+        }
+    }
+
+    var unavailableReason: String? {
+        switch self {
+        case .video(let m): m.unavailableReason
+        case .image(let m): m.unavailableReason
+        case .audio(let m): m.unavailableReason
+        case .upscale(let m): m.unavailableReason
+        }
+    }
 }
 
 enum ModelRegistry {
@@ -107,6 +125,18 @@ final class ModelCatalog {
         self.isLoaded = true
         self.lastError = nil
     }
+
+    var availableVideo: [VideoModelConfig] { video.filter(\.isAvailable) }
+    var availableImage: [ImageModelConfig] { image.filter(\.isAvailable) }
+    var availableAudio: [AudioModelConfig] { audio.filter(\.isAvailable) }
+    var availableUpscale: [UpscaleModelConfig] { upscale.filter(\.isAvailable) }
+
+    var imageAllowed: Bool { !availableImage.isEmpty }
+    var videoAllowed: Bool { !availableVideo.isEmpty }
+    var ttsAllowed: Bool { availableAudio.contains { $0.category == .tts } }
+    var musicAllowed: Bool { availableAudio.contains { $0.category == .music } }
+    var sfxAllowed: Bool { availableAudio.contains { $0.category == .sfx } }
+    var upscaleAllowed: Bool { !availableUpscale.isEmpty }
 }
 
 struct CatalogEntry: Decodable, Sendable {
@@ -122,6 +152,8 @@ struct CatalogEntry: Decodable, Sendable {
     let qualities: [String]?
     let audioPricing: AudioPricing?
     let creditsPerSecondUpscale: Double?
+    let available: Bool
+    let unavailableReason: String?
 
     enum Kind: String, Decodable, Sendable { case video, image, audio, upscale }
     enum ResponseShape: String, Decodable, Sendable {
@@ -163,7 +195,7 @@ struct CatalogEntry: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case id, kind, displayName, allowedEndpoints, responseShape, uiCapabilities
         case creditsPerSecond, audioDiscountRate, creditsPerImage, qualities
-        case audioPricing, creditsPerSecondUpscale
+        case audioPricing, creditsPerSecondUpscale, available, unavailableReason
     }
 
     init(from decoder: Decoder) throws {
@@ -179,6 +211,8 @@ struct CatalogEntry: Decodable, Sendable {
         self.qualities = try c.decodeIfPresent([String].self, forKey: .qualities)
         self.audioPricing = try c.decodeIfPresent(AudioPricing.self, forKey: .audioPricing)
         self.creditsPerSecondUpscale = try c.decodeIfPresent(Double.self, forKey: .creditsPerSecondUpscale)
+        self.available = try c.decodeIfPresent(Bool.self, forKey: .available) ?? true
+        self.unavailableReason = try c.decodeIfPresent(String.self, forKey: .unavailableReason)
         switch self.kind {
         case .video:
             self.uiCapabilities = .video(try c.decode(VideoCaps.self, forKey: .uiCapabilities))

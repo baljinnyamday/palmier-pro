@@ -38,6 +38,8 @@ struct ImageModelConfig: Identifiable, Sendable {
 
     var id: String { entry.id }
     var displayName: String { entry.displayName }
+    var isAvailable: Bool { entry.available }
+    var unavailableReason: String? { entry.unavailableReason }
     var creditsPerImage: [String: Double] { entry.creditsPerImage ?? [:] }
 
     var resolutions: [String]? { caps.resolutions }

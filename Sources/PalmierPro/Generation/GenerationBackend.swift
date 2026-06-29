@@ -45,8 +45,12 @@ enum GenerationBackend {
             .decode(StagingUploadResponse.self, from: stagingRespData)
             .storageId
 
-        // 3. Commit the upload
-        let result: UrlResponse = try await convex.action(
+        // 3. Record ownership, then resolve the public URL
+        try await convex.mutation(
+            "uploads:recordUpload",
+            with: ["storageId": storageId],
+        )
+        let result: UrlResponse = try await convex.mutation(
             "uploads:commitUpload",
             with: ["storageId": storageId],
         )

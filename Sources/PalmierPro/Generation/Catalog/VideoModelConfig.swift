@@ -13,6 +13,8 @@ struct VideoModelConfig: Identifiable, Sendable {
 
     var id: String { entry.id }
     var displayName: String { entry.displayName }
+    var isAvailable: Bool { entry.available }
+    var unavailableReason: String? { entry.unavailableReason }
     var creditsPerSecond: [String: Double] { entry.creditsPerSecond ?? [:] }
     var audioDiscountRate: [String: Double]? { entry.audioDiscountRate }
 

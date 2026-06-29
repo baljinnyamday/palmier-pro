@@ -63,12 +63,13 @@ enum VideoToAudioEditKind {
     @MainActor
     var model: AudioModelConfig? {
         if let preferred = AudioModelConfig.allModels.first(where: {
-            $0.id == preferredModelId && $0.category == category && $0.inputs.contains(.video)
+            $0.id == preferredModelId && $0.category == category && $0.inputs.contains(.video) && $0.isAvailable
         }) {
             return preferred
         }
         return AudioModelConfig.allModels.first {
-            $0.category == category
+            $0.isAvailable
+                && $0.category == category
                 && $0.inputs.contains(.video)
                 && ($0.id.localizedCaseInsensitiveContains(providerName)
                     || $0.displayName.localizedCaseInsensitiveContains(providerName))
