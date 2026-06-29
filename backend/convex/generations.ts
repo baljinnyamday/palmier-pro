@@ -6,7 +6,6 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 import { assertModelAvailable } from "./providers/env";
 import { routeToProvider } from "./providers/router";
 import { GenerationParams, ProviderContext } from "./providers/types";
@@ -50,9 +49,18 @@ export const submit = mutation({
 });
 
 export const byId = query({
-  args: { id: v.string() },
+  args: { id: v.id("generations") },
   handler: async (ctx, { id }) => {
-    return await ctx.db.get(id as Id<"generations">);
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const job = await ctx.db.get(id);
+    if (!job) return null;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerk", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user || job.userId !== user._id) throw new Error("Not found");
+    return job;
   },
 });
 

@@ -10,7 +10,9 @@ export const send = action({
     email: v.optional(v.string()),
     screenshotPngBase64: v.optional(v.string()),
   },
-  handler: async () => {
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
     // TODO(05): persist feedback to a table or forward to a real sink.
     return { ok: true };
   },
